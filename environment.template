@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy Flask App on EC2
+
+Parameters:
+  AWSAccessKeyDynamoDB:
+    Type: String
+  AWSSecretKeyDynamoDB:
+    Type: String
+  AWSRegionDynamoDB:
+    Type: String
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to SSH
+    Type: AWS::EC2::KeyPair::KeyName
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Select your VPC
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Select your Subnet
+  InstanceType:
+    Type: String
+    Default: t2.micro
+  DockerImage:
+    Type: String
+    Description: Docker image to run
+
+Resources:
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and HTTP access via port 5000
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          CidrIp: 0.0.0.0/0
+  FlaskEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref SubnetId
+      KeyName: !Ref KeyName
+      ImageId: ami-014d544cfef21b42d
+      SecurityGroupIds:
+        - !Ref MySecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y docker
+          service docker start
+          docker run -d \
+            -p 5000:5000 \
+            -e AWS_ACCESS_KEY_ID=${AWSAccessKeyDynamoDB} \
+            -e AWS_SECRET_ACCESS_KEY=${AWSSecretKeyDynamoDB} \
+            -e AWS_REGION=${AWSRegionDynamoDB} \
+            ${DockerImage}
+
+Outputs:
+  AppURL:
+    Value: !Sub http://${FlaskEC2Instance.PublicDnsName}:5000
+    Description: Access the Flask app (/health or /secret)
