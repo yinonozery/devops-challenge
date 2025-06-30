@@ -1,0 +1,8 @@
+services:
+  web:
+    build: .
+    image: yinonoz/devops-challenge
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
